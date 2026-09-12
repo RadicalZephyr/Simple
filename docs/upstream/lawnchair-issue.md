@@ -103,8 +103,14 @@ Both are worth keeping — stale rows already exist on people's home screens and
 handling. But nothing currently removes the row at the moment configuration is abandoned, which
 is why they keep appearing.
 
-The V2 flow is inherited from AOSP rather than written here, so the same gap may exist upstream.
-I was not able to check current AOSP Launcher3 to see whether it has since been fixed there; if
-it has, that fix is probably better than mine.
+This is not a Lawnchair regression. The same code ships in Launcher3 in Android 15: in
+LineageOS's Trebuchet fork at `lineage-22.2`, `addAppWidgetImpl`, `completeAddAppWidget` and the
+`RESULT_CANCELED` branch are all identical to the ones here, down to the comments. Two
+independent forks carrying the same code without either having patched it is about as close to
+"this is AOSP's" as you can get without reading AOSP directly. Lawnchair has it by inheritance.
+
+The one thing I could not check is AOSP `main` — `android.googlesource.com` was unreachable from
+where I was working — so it is possible this has been fixed there since. If it has, take that
+fix rather than this one.
 
 A patch is attached as a pull request.

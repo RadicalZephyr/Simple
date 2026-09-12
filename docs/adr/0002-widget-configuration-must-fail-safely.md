@@ -159,8 +159,12 @@ crash.
 
 ## Open questions
 
-Whether current AOSP Launcher3 has already fixed this. I could not reach the AOSP sources
-from this environment to compare. If upstream has a fix, port theirs instead of ours.
+Whether AOSP `main` has already fixed this. `android.googlesource.com` is unreachable from this
+environment, so the canonical tree could not be read. What is settled is that Android 15's
+Launcher3 has the same unfixed code: LineageOS's Trebuchet fork at `lineage-22.2` carries
+`addAppWidgetImpl`, `completeAddAppWidget` and the `RESULT_CANCELED` branch identically, which
+makes this AOSP's gap rather than Lawnchair's. If `main` has since been fixed, port that instead
+of ours.
 
 Whether to file the root-cause issue upstream before sending a patch. Nothing in the tracker
 describes the dead tile, so a maintainer reading a patch against `completeTwoStageWidgetDrop`
