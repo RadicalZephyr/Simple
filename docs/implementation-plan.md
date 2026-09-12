@@ -96,6 +96,7 @@ session. Everything below has to run on a real device or emulator.
 - [ ] `themes.xml` plus a `values-night` variant, force-dark opt-out
 - [ ] Lawnchair: cancel-path cleanup in `completeTwoStageWidgetDrop`
 - [ ] Build both, install on her phone, walk through the verification steps
+- [ ] File an upstream issue describing the root cause, citing #5124 and the retry commit
 - [ ] Decide whether to send the Lawnchair fix upstream, and to which project
 
 ## Out of scope

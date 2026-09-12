@@ -61,6 +61,39 @@ flow that assumes configuration activities exit cleanly.
 Note that this affects every widget whose configuration is cancelled, not just ours. Backing
 out of any widget's configuration screen leaves the same dead tile.
 
+### Prior art in Lawnchair
+
+This has been reported repeatedly, but always from the far end of the failure, and it has
+never been fixed at the source.
+
+Issue #5124 (Dec 2024, Lawnchair 15 Nightly on a OnePlus Nord 3) is the clearest example:
+"place a widget, widget disappears", and tapping the reconfigure pencil crashes with
+`java.lang.IllegalArgumentException: Bad widget id 2367`. That is exactly what a workspace row
+that has outlived its widget id produces. It was closed the next day by commit `aa8dd44`,
+which did two things: delete the widget id in `completeAddAppWidget` when the provider info is
+null, and catch `IllegalArgumentException` in `LauncherWidgetHolder.startConfigActivity`,
+adding `handleInvalidWidgetId` to delete the stale id, allocate a new one, and restart
+configuration.
+
+That was not enough. Commit `e4d8d3c` (Sep 2025) added a retry counter capping the
+reallocate-and-restart loop at three attempts, and closed five more issues doing it: #5765,
+#5764, #5534, #5505 and #4533. A workaround that needs a loop limit is a workaround that is
+firing often.
+
+`handleInvalidWidgetId` is present in 15-dev and 16-dev but not in 14-dev, so it arrived
+alongside the V2 flow rather than before it.
+
+Two other repairs in this area are unrelated to ours and worth not confusing with it. PR #6408
+(merged Feb 2026) fixed configuration activities failing to launch at all under Android 14+
+background-activity-launch hardening. Issue #6208, still open, reports configurable widgets
+failing to place on a Pixel 9a running Android 16 unless "Remove animations" is enabled.
+
+So six or more issues have been closed by catching the symptom at `startConfigActivity` —
+reallocate the id, retry, then cap the retries — and none by removing the row that goes stale
+in the first place. I could not find any issue, open or closed, that describes the dead tile
+itself. Users report what they see later: the widget vanished, or the launcher crashed with
+"Bad widget id".
+
 ## Decision
 
 Fix both halves.
@@ -127,3 +160,11 @@ crash.
 
 Whether current AOSP Launcher3 has already fixed this. I could not reach the AOSP sources
 from this environment to compare. If upstream has a fix, port theirs instead of ours.
+
+Whether to file the root-cause issue upstream before sending a patch. Nothing in the tracker
+describes the dead tile, so a maintainer reading a patch against `completeTwoStageWidgetDrop`
+has no context for it; #5124 and the retry commit are the evidence that would give it some.
+
+Note that the fix does not replace the retry mechanism, and should not. `handleInvalidWidgetId`
+stays as a safety net for stale rows created by any path we have not found, including rows
+already on users' home screens.
