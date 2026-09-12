@@ -157,8 +157,13 @@ this is not a concern, but it does mean widget rendering now depends on package 
 
 ## Open questions
 
-**How pages are identified and ordered.** A separate request for groups and reordering landed
-while this was in draft, and it collides with the fact that pages are referenced by position:
+**How pages are identified and ordered.** A separate request landed while this was in draft:
+named groups of apps *inside* a page, with the groups reorderable and the apps reorderable
+within them. That is a third level in the model — page, group, app — and it changes what the
+widget renders, since group titles become headers between blocks of app names. It needs its own
+ADR.
+
+It also collides with the fact that pages are referenced by position:
 `PreferencesManager` stores a page index per widget id, and `DataManager.deleteEntry` removes
 by position, so deleting a page already repoints every widget after it. Reordering would do the
 same. Pages almost certainly need stable identifiers, and that belongs in the same migration as

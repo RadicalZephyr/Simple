@@ -123,7 +123,7 @@ The identity fix is worth pulling forward regardless of whether the feature ship
 renames itself appears unticked when its page is reopened, and is then silently dropped on
 save.
 
-- [ ] Pin down what "group" means, then write the ADR for page identity and ordering
+- [ ] Write the ADR for groups: page, group, app nesting, widget headers, stable page ids
 - [ ] Give pages stable identifiers and reference widgets by id, not by position
 - [ ] Compare and select on package name alone, not on the whole pair
 - [ ] Replace the delimited string with JSON under a new preferences key
