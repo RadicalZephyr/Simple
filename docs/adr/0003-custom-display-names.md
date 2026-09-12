@@ -70,21 +70,34 @@ Shipping this before that fix would make an existing crash strictly more likely.
 
 ## Decision
 
-Change an entry from `(label, package)` to a record of three fields:
+Identity is the package name and nothing else.
 
-| Field | Meaning |
-| --- | --- |
-| `package` | identity, the only thing compared |
-| `customName` | optional, what the user typed |
-| `cachedLabel` | the system label when last resolved |
+Custom names are stored once per package, not once per entry, so a rename applies everywhere
+the app appears. That includes pages it is added to *later*, which per-entry storage cannot do
+without copying a name forward at creation time.
 
-The displayed name is `customName ?: resolve(package) ?: cachedLabel`. Resolve in
+Storing names per package normalises the document. A page becomes an ordered list of package
+names, and names and cached labels become maps keyed by package:
+
+```json
+{
+  "version": 2,
+  "names":  { "com.google.android.apps.nbu.files": "Files" },
+  "labels": { "com.google.android.apps.nbu.files": "Files by Google" },
+  "pages":  [ ["com.google.android.apps.nbu.files", "com.android.chrome"] ]
+}
+```
+
+The displayed name is `names[package] ?: resolve(package) ?: labels[package]`. Resolve in
 `provideGlance` rather than inside the composable, since it already has a `Context` and runs
-off the main thread, and refresh `cachedLabel` whenever resolution succeeds.
+off the main thread, and refresh `labels` whenever resolution succeeds.
 
 Persist as JSON under a new preferences key, using `org.json` from the platform. On first read,
 migrate the legacy delimited string into the new key and leave the old key in place, untouched,
-as a one-time backup. Compare and select on `package` alone.
+as a one-time backup.
+
+The shape of `pages` above is provisional. Pages are currently referenced by position, which is
+broken today and is being decided separately — see open questions.
 
 Put the renaming UI in a second step after app selection: "Save" moves from the checkbox list
 to a short screen listing only the chosen apps, each with an editable name field prefilled with
@@ -98,6 +111,13 @@ because the field exists. Rejected because it collapses "the name the user chose
 name the system reported when you ticked the box" into one string, which makes it impossible
 to ever refresh a stale label or to offer a reset. It also still requires the identity fix, so
 it does not actually save the work it appears to save.
+
+**Store the custom name on each entry rather than once per package.** This is where the data
+already lives, needs no second structure, and allows a page-specific name. Rejected once
+renaming was settled as applying everywhere: per-entry storage can propagate an edit across
+existing entries, but an app added to a new page afterwards would silently revert to its system
+label, because nothing carries the name forward. Fixing that means looking up the name by
+package at creation time, which is the package-keyed map with extra steps.
 
 **Escape the delimiters and keep the existing format.** Cheaper than a format change and keeps
 the data human-readable in `adb shell dumpsys`. Rejected because hand-rolled escaping is
@@ -137,12 +157,16 @@ this is not a concern, but it does mean widget rendering now depends on package 
 
 ## Open questions
 
-**Is a name per entry or per app?** The record above is per entry, which is where the data
-already lives, so the same app on two pages could carry two names. Her example suggests the
-opposite intent — "Files by Google" is too long everywhere, not just on one page. A middle
-option is to store per entry but apply a rename to every entry sharing that package. This
-should be settled before implementation, because changing it afterwards means another
-migration.
+**How pages are identified and ordered.** A separate request for groups and reordering landed
+while this was in draft, and it collides with the fact that pages are referenced by position:
+`PreferencesManager` stores a page index per widget id, and `DataManager.deleteEntry` removes
+by position, so deleting a page already repoints every widget after it. Reordering would do the
+same. Pages almost certainly need stable identifiers, and that belongs in the same migration as
+this one rather than a second one later. It needs its own ADR once "group" is pinned down.
+
+**Where ordering lives in the UI.** The rename step is the obvious home for reordering too —
+it already shows exactly the chosen apps in a short list. Worth confirming before either is
+built, since it means the second step is doing two jobs.
 
 **What should an uninstalled app show?** The fallback chain ends at `cachedLabel`, so it keeps
 its name and does nothing when tapped, which matches today's behaviour. Showing it as missing,

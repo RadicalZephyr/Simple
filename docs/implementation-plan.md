@@ -123,11 +123,12 @@ The identity fix is worth pulling forward regardless of whether the feature ship
 renames itself appears unticked when its page is reopened, and is then silently dropped on
 save.
 
-- [ ] Settle the two open questions in ADR 0003 (naming scope, name field behaviour)
+- [ ] Pin down what "group" means, then write the ADR for page identity and ordering
+- [ ] Give pages stable identifiers and reference widgets by id, not by position
 - [ ] Compare and select on package name alone, not on the whole pair
 - [ ] Replace the delimited string with JSON under a new preferences key
 - [ ] Migrate the legacy string on first read, leave the old key as a backup
-- [ ] Add `customName` and `cachedLabel` to the entry record
-- [ ] Resolve display names in `provideGlance`, refreshing `cachedLabel`
-- [ ] Add the rename step after app selection
+- [ ] Store names and cached labels in maps keyed by package
+- [ ] Resolve display names in `provideGlance`, refreshing the label cache
+- [ ] Add the rename step after app selection, probably carrying ordering too
 - [ ] Fix the format comment at `DataManager.kt:5`, which documents the fields in the wrong order
