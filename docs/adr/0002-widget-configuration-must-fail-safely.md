@@ -1,6 +1,7 @@
 # ADR 0002: Widget configuration must fail safely
 
-**Status:** Draft
+**Status:** Draft. Superseded in part by ADR 0004 — the Simple half no longer applies,
+since we are not continuing on that codebase. The Lawnchair half stands.
 
 ## Context
 

@@ -1,6 +1,8 @@
 # ADR 0003: Custom display names for apps
 
-**Status:** Draft
+**Status:** Draft. Reframed by ADR 0004 — this is now a design input for a new app rather
+than a change to an existing one, so the migration and legacy-format sections fall away.
+The identity, naming and resolution decisions carry over unchanged.
 
 ## Context
 
