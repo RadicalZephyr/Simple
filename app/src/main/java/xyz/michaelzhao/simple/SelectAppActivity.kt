@@ -90,9 +90,13 @@ class SelectAppActivity : ComponentActivity() {
 
             selected.addAll(List(packages.size) { false })
             if (editNum != -1) {
-                val data = DataManager(context).loadData()[editNum]
-                sortedPackages.forEachIndexed { i, _ ->
-                    selected[i] = data.contains(sortedPackages[i])
+                // Match on package name only. Comparing the whole pair means an app that
+                // changes its own label stops looking selected, and is then dropped on save.
+                val storedPackages = DataManager(context).loadData()[editNum]
+                    .map { it.second }
+                    .toSet()
+                sortedPackages.forEachIndexed { i, pack ->
+                    selected[i] = pack.second in storedPackages
                 }
             }
         }
@@ -105,7 +109,7 @@ class SelectAppActivity : ComponentActivity() {
                     .padding(innerPadding)
                     .fillMaxWidth(),
                 fontWeight = FontWeight.Bold,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
             return

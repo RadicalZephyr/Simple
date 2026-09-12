@@ -11,7 +11,7 @@ class PreferencesManager(context: Context) {
     }
 
     fun getNumber(widgetId: Int): Int {
-        return prefs.getInt(getWidgetKey("widget_num_", widgetId), 1)
+        return prefs.getInt(getWidgetKey("widget_num_", widgetId), 0)
     }
 
     fun saveHidePage(widgetId: Int, value: Boolean) {
@@ -43,7 +43,10 @@ class PreferencesManager(context: Context) {
     }
 
     fun removeWidget(widgetId: Int) {
-        prefs.edit().remove(getWidgetKey("widget_num_", widgetId)).apply()
-        prefs.edit().remove(getWidgetKey("Widget_hide_", widgetId)).apply()
+        prefs.edit()
+            .remove(getWidgetKey("widget_num_", widgetId))
+            .remove(getWidgetKey("widget_hide_", widgetId))
+            .remove(getWidgetKey("widget_font_", widgetId))
+            .apply()
     }
 }

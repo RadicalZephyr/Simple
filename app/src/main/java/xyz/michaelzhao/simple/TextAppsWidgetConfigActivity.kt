@@ -40,11 +40,13 @@ import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.lifecycleScope
@@ -79,46 +81,71 @@ class TextAppsWidgetConfigActivity : ComponentActivity() {
         setResult(RESULT_CANCELED)
 
         setContent {
-            MaterialTheme {
-                ConfigurationScreen(
-                    prevNumber,
-                    prevHide,
-                    prevFontSize,
-                    onSave = { numberText: String, hidePageNumber: Boolean, fontSizeText: String ->
-                        lifecycleScope.launch {
-                            // Save number
-                            // TODO: catch conversion error or make sure it doesn't happen
-                            val number = numberText.toInt()
-                            val fontSize = fontSizeText.toFloat()
-                            preferencesManager.saveNumber(appWidgetId, number)
-                            preferencesManager.saveHidePage(appWidgetId, hidePageNumber)
-                            preferencesManager.saveFontSize(appWidgetId, fontSize)
+            ConfigurationScreen(
+                prevNumber,
+                prevHide,
+                prevFontSize,
+                onSave = { numberText: String, hidePageNumber: Boolean, fontSizeText: String ->
+                    val number = numberText.toIntOrNull()
+                    val fontSize = fontSizeText.toFloatOrNull()
 
-                            // Update widget
-                            try {
-                                updateAppWidgetState(
-                                    this@TextAppsWidgetConfigActivity,
-                                    glanceId
-                                ) { prefs ->
-                                    prefs[intPreferencesKey("widget_number")] = number
-                                    prefs[booleanPreferencesKey("hide_page_num")] = hidePageNumber
-                                    prefs[intPreferencesKey("version")] = Date().time.toInt()
-                                }
-                                TextAppsWidget().update(this@TextAppsWidgetConfigActivity, glanceId)
-                            } catch (e: Exception) {
-                                Log.e("Widget Config", "Update failed", e)
-                            }
-                        }
-
-                        // Set result to OK
-                        val resVal = Intent().apply {
-                            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                        }
-                        setResult(RESULT_OK, resVal)
-                        finish()
+                    // Save is disabled unless both parse, so this is a guard rather than a
+                    // path we expect to take.
+                    if (number == null || fontSize == null) {
+                        Log.e(
+                            "Widget Config",
+                            "Save with unparseable values: '$numberText', '$fontSizeText'"
+                        )
+                    } else {
+                        saveAndFinish(
+                            appWidgetId,
+                            glanceId,
+                            preferencesManager,
+                            number,
+                            fontSize,
+                            hidePageNumber
+                        )
                     }
-                )
+                }
+            )
+        }
+    }
+
+    private fun saveAndFinish(
+        appWidgetId: Int,
+        glanceId: GlanceId,
+        preferencesManager: PreferencesManager,
+        number: Int,
+        fontSize: Float,
+        hidePageNumber: Boolean
+    ) {
+        preferencesManager.saveNumber(appWidgetId, number)
+        preferencesManager.saveHidePage(appWidgetId, hidePageNumber)
+        preferencesManager.saveFontSize(appWidgetId, fontSize)
+
+        val resVal = Intent().apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        }
+        setResult(RESULT_OK, resVal)
+
+        // Finish only once the widget state has been written. Finishing first cancels
+        // lifecycleScope part way through the write, which leaves the widget on its
+        // default page.
+        lifecycleScope.launch {
+            try {
+                updateAppWidgetState(
+                    this@TextAppsWidgetConfigActivity,
+                    glanceId
+                ) { prefs ->
+                    prefs[intPreferencesKey("widget_number")] = number
+                    prefs[booleanPreferencesKey("hide_page_num")] = hidePageNumber
+                    prefs[intPreferencesKey("version")] = Date().time.toInt()
+                }
+                TextAppsWidget().update(this@TextAppsWidgetConfigActivity, glanceId)
+            } catch (e: Exception) {
+                Log.e("Widget Config", "Update failed", e)
             }
+            finish()
         }
     }
 }
@@ -136,18 +163,21 @@ fun ConfigurationScreen(
     var textFieldSize by remember { mutableStateOf(Size.Zero) }
     var expanded by remember { mutableStateOf(false) }
     val data = DataManager(LocalContext.current).loadData()
+    val density = LocalDensity.current
 
     val icon = if (expanded)
         Icons.Filled.KeyboardArrowUp
     else
         Icons.Filled.KeyboardArrowDown
-    var fieldErr: Boolean
-    try {
-        val n = numberText.toInt()
-        fieldErr = n < 0 || n >= data.size
-    } catch (_: Exception) {
-        fieldErr = false
-    }
+    val pageNumber = numberText.toIntOrNull()
+    val pageNumberValid = pageNumber != null && pageNumber >= 0 && pageNumber < data.size
+    val parsedFontSize = fontSizeText.toFloatOrNull()
+    val fontSizeValid = parsedFontSize != null && parsedFontSize > 0f
+
+    // Flag a field only once something has been typed into it, but require both to be
+    // valid before the widget can be saved.
+    val numberErr = numberText.isNotBlank() && !pageNumberValid
+    val fontErr = fontSizeText.isNotBlank() && !fontSizeValid
 
     SimpleTheme {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -189,15 +219,19 @@ fun ConfigurationScreen(
                                     "dropdown",
                                     modifier = Modifier.clickable { expanded = !expanded })
                             },
-                            isError = fieldErr
+                            isError = numberErr
                         )
                         DropdownMenu(
                             expanded = expanded,
                             onDismissRequest = { expanded = false },
-                            modifier = Modifier.width(textFieldSize.width.dp)
+                            modifier = Modifier.width(
+                                with(density) { textFieldSize.width.toDp() }
+                            )
                         ) {
                             data.mapIndexed { i, d ->
-                                val text = d.joinToString { it.first }.substring(0, 20) + "..."
+                                val labels = d.joinToString { it.first }
+                                val text =
+                                    if (labels.length > 20) labels.take(20) + "..." else labels
                                 DropdownMenuItem(
                                     text = { Text("$i: $text") },
                                     onClick = {
@@ -211,7 +245,8 @@ fun ConfigurationScreen(
                         value = fontSizeText,
                         onValueChange = { fontSizeText = it },
                         label = { Text("Font Size (default = 30)") },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = fontErr
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically
@@ -224,7 +259,7 @@ fun ConfigurationScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         { onSave(numberText, hidePageNumber, fontSizeText) },
-                        enabled = numberText.isNotBlank() && !fieldErr
+                        enabled = pageNumberValid && fontSizeValid
                     ) {
                         Text("Save")
                     }

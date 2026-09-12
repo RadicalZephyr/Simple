@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Simple" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Compose picks light or dark itself, so the platform theme must follow the system
+         night mode too, and must not be force-darkened on top of that. -->
+    <style name="Theme.Simple" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
 </resources>

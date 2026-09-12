@@ -23,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -55,7 +54,7 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxWidth()
                                 .padding(vertical = 16.dp)
                         )
-                        PageList()
+                        PageList(Modifier.weight(1f))
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -103,9 +102,12 @@ fun OpenSelectApp(modifier: Modifier = Modifier, index: Int = -1) {
 }
 
 @Composable
-fun PageList() {
+fun PageList(modifier: Modifier = Modifier) {
     val data = DataManager(LocalContext.current).loadData()
-    LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 156.dp)) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 156.dp),
+        modifier = modifier
+    ) {
         itemsIndexed(data) { i, d ->
             PageDisplay(i, d)
         }
@@ -122,7 +124,11 @@ fun PageDisplay(index: Int, data: List<Pair<String, String>>) {
         Column(
             modifier = Modifier.padding(all = 12.dp)
         ) {
-            Text("Page $index", fontSize = 14.sp, color = Color.Gray)
+            Text(
+                "Page $index",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             data.map {
                 Text(it.first, fontSize = 18.sp)
             }
