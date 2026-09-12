@@ -90,11 +90,11 @@ session. Everything below has to run on a real device or emulator.
 - [ ] Confirm the layout diagnosis by rotating to landscape on the unfixed build
 - [ ] Capture a logcat stack trace from the configuration screen crash
 - [ ] Get a screenshot of the black-on-black editor, plus the four observations in ADR 0001
-- [ ] `MainActivity`: weight on the grid, themed grey label
-- [ ] `TextAppsWidgetConfigActivity`: safe truncation, defensive parsing, font size validation, density conversion, drop the redundant theme wrapper
-- [ ] `PreferencesManager`: key typo, font key removal, default page 0
-- [ ] `themes.xml` plus a `values-night` variant, force-dark opt-out
-- [ ] Lawnchair: cancel-path cleanup in `completeTwoStageWidgetDrop`
+- [x] `MainActivity`: weight on the grid, themed grey label
+- [x] `TextAppsWidgetConfigActivity`: safe truncation, defensive parsing, font size validation, density conversion, drop the redundant theme wrapper
+- [x] `PreferencesManager`: key typo, font key removal, default page 0
+- [x] `themes.xml` plus a `values-night` variant, force-dark opt-out
+- [x] Lawnchair: cancel-path cleanup in `completeTwoStageWidgetDrop`
 - [ ] Build both, install on her phone, walk through the verification steps
 - [ ] File an upstream issue describing the root cause, citing #5124 and the retry commit
 - [ ] Decide whether to send the Lawnchair fix upstream, and to which project
@@ -125,7 +125,8 @@ save.
 
 - [ ] Write the ADR for groups: page, group, app nesting, widget headers, stable page ids
 - [ ] Give pages stable identifiers and reference widgets by id, not by position
-- [ ] Compare and select on package name alone, not on the whole pair
+- [x] Compare and select on package name alone, not on the whole pair (pulled forward,
+      it is a live data-loss bug on its own)
 - [ ] Replace the delimited string with JSON under a new preferences key
 - [ ] Migrate the legacy string on first read, leave the old key as a backup
 - [ ] Store names and cached labels in maps keyed by package
