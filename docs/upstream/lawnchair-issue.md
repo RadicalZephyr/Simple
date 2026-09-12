@@ -1,29 +1,47 @@
 # Upstream issue draft: Lawnchair
 
-Paste into the bug report form at
-https://github.com/LawnchairLauncher/lawnchair/issues/new/choose. Field headings below match
-the form. Fill in the device and version fields from her phone before submitting.
+Open at https://github.com/LawnchairLauncher/lawnchair/issues/new/choose and pick the bug
+report form. Headings below match its fields.
+
+Before posting, reproduce it once. Drag any widget with a configuration activity onto the home
+screen, press back at the setup screen, and check whether a tile is left behind. Everything
+below is derived from reading the code and the commit history rather than from watching it
+happen, and that is a thirty-second check that makes the report unarguable.
+
+---
+
+## Title
+
+```
+Cancelled widget configuration leaves an orphaned widget ("Bad widget id")
+```
+
+Alternative, if a plainer one reads better:
+
+```
+Widget stays on the home screen after its configuration screen is cancelled
+```
 
 ---
 
 ## Describe the bug
 
-Cancelling a widget's configuration activity leaves a dead widget on the home screen. The tile
-stays where it was dropped, bound to an app widget id that has already been freed, until the
-next full model reload removes it. Anything that touches that id in the meantime fails with
+Cancelling a widget's configuration activity leaves a dead widget on the home screen — a tile
+bound to an app widget id that has already been freed. It survives until the next full model
+reload, and anything that touches that id in the meantime fails with
 `java.lang.IllegalArgumentException: Bad widget id`.
 
-This affects any widget with a configuration activity, including simply pressing back at the
-setup screen. It is easiest to hit with a widget whose configuration activity crashes, because
-then the user never gets a chance to complete it.
+This is not an exotic path. It happens with any widget that has a configuration activity, and
+pressing back at the setup screen is enough. It is easiest to hit with a widget whose
+configuration activity crashes, because then the user never gets the chance to complete it.
 
-The cause looks like a gap between two halves of the
+The cause is a gap between the two halves of the
 `FLAG_ENABLE_ADD_APP_WIDGET_VIA_CONFIG_ACTIVITY_V2` flow.
 
 `Launcher.addAppWidgetImpl` no longer returns early when a configuration activity starts. It
 calls `completeAddAppWidget(..., showPendingWidget = true, ...)`, which writes the item to the
 database with `restoreStatus = FLAG_UI_NOT_READY` and adds a `PendingAppWidgetHostView` to the
-workspace, so the widget appears immediately with a preview.
+workspace, so the widget shows immediately with a preview.
 
 The `RESULT_CANCELED` branch of `completeTwoStageWidgetDrop` was not updated to match:
 
@@ -34,43 +52,59 @@ The `RESULT_CANCELED` branch of `completeTwoStageWidgetDrop` was not updated to 
 }
 ```
 
-It frees the id and nothing else. The view and the database row survive. `addAppWidgetImpl` has
-also already called `getDragLayer().clearAnimatedView()`, so `mDragLayer.getAnimatedView()` is
-null by this point and even the cancel animation's completion callback does not run.
+It frees the id and stops. The view and the database row both survive. `addAppWidgetImpl` has
+also already called `getDragLayer().clearAnimatedView()` by this point, so
+`mDragLayer.getAnimatedView()` is null and the cancel animation's completion callback never runs
+either.
 
-The row is eventually removed: on the next full reload `WidgetInflater.inflateAppWidget` cannot
-resolve the id, so it returns `TYPE_DELETE`. That is consistent with reports of widgets that
-"disappear" some time after being placed.
+The row does eventually go: on the next full reload `WidgetInflater.inflateAppWidget` cannot
+resolve the id and returns `TYPE_DELETE`. That matches the reports of widgets that vanish some
+time after being placed.
 
-This is inherited AOSP Launcher3 code rather than anything specific to Lawnchair. 14-dev is not
-affected, because there `addAppWidgetImpl` returns early whenever a configuration activity
-starts, so nothing is added until the configuration succeeds.
+`14-dev` is not affected — there `addAppWidgetImpl` returns early whenever a configuration
+activity starts, so nothing is added until configuration succeeds. `15-dev` and `16-dev` both
+carry the new flow with the flag defaulted to `true`.
 
 ## Steps to reproduce
 
 1. Long press the home screen and open the widget picker.
 2. Drag any widget that has a configuration activity onto the home screen.
-3. When the configuration screen opens, press back instead of completing it.
-4. A tile for the widget remains on the home screen.
-5. Long press it and choose the reconfigure (pencil) option — this fails with "Bad widget id".
+3. Press back at the configuration screen instead of completing it.
+4. A tile for the widget is left on the home screen.
+5. Long press it and choose reconfigure — this fails with "Bad widget id".
 6. Restart the launcher. The tile is gone.
 
 ## Expected behavior
 
-Cancelling the configuration should leave the home screen exactly as it was before the widget
-was dropped, which is what happened before the V2 flow.
+Cancelling configuration leaves the home screen exactly as it was before the widget was
+dropped, which is what happened before the V2 flow.
+
+## Device information
+
+Not device-specific — it is in the add-widget flow rather than in anything a device does
+differently. *(Fill in your device and Android version anyway, since the form asks.)*
+
+## App version
+
+*(Your Lawnchair version.)*
 
 ## Additional context
 
-This has been reported several times from the far end, as widgets that vanish or as "Bad widget
-id" crashes, and fixed each time at the point of failure rather than the point of creation:
+This has been reported several times already, but always from the far end — as widgets that
+vanish, or as "Bad widget id" crashes — and fixed each time at the point of failure rather than
+the point of creation:
 
 * #5124, closed by `aa8dd44`, which catches `IllegalArgumentException` in
   `LauncherWidgetHolder.startConfigActivity` and reallocates the id.
 * `e4d8d3c` then had to cap that reallocate-and-retry loop at three attempts, closing #5765,
   #5764, #5534, #5505 and #4533.
 
-Those workarounds are still worth keeping, since stale rows already exist on users' home
-screens. But nothing currently removes the row at the moment the configuration is abandoned.
+Both are worth keeping — stale rows already exist on people's home screens and still need
+handling. But nothing currently removes the row at the moment configuration is abandoned, which
+is why they keep appearing.
+
+The V2 flow is inherited from AOSP rather than written here, so the same gap may exist upstream.
+I was not able to check current AOSP Launcher3 to see whether it has since been fixed there; if
+it has, that fix is probably better than mine.
 
 A patch is attached as a pull request.
