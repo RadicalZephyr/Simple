@@ -110,3 +110,24 @@ is a larger change than anything above.
 
 `AppDropdownInput.kt` is dead code — defined, never called, and carrying the same pixel-as-dp
 bug. Worth deleting, but not while we are trying to keep the diff reviewable against upstream.
+
+## Follow-on: custom display names (ADR 0003)
+
+Separate stream of work, but it has a hard ordering constraint against the fixes above. The
+feature exists to make names shorter, and the configuration screen crashes on
+`substring(0, 20)` exactly when a page's joined labels are shorter than twenty characters, so
+the config screen fix has to land first or the feature makes an existing crash more likely.
+
+The identity fix is worth pulling forward regardless of whether the feature ships. Comparing
+`Pair(label, package)` instead of `package` at `SelectAppActivity.kt:95` means an app that
+renames itself appears unticked when its page is reopened, and is then silently dropped on
+save.
+
+- [ ] Settle the two open questions in ADR 0003 (naming scope, name field behaviour)
+- [ ] Compare and select on package name alone, not on the whole pair
+- [ ] Replace the delimited string with JSON under a new preferences key
+- [ ] Migrate the legacy string on first read, leave the old key as a backup
+- [ ] Add `customName` and `cachedLabel` to the entry record
+- [ ] Resolve display names in `provideGlance`, refreshing `cachedLabel`
+- [ ] Add the rename step after app selection
+- [ ] Fix the format comment at `DataManager.kt:5`, which documents the fields in the wrong order
