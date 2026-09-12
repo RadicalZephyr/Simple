@@ -4,9 +4,9 @@ Open at https://github.com/LawnchairLauncher/lawnchair/issues/new/choose and pic
 report form. Headings below match its fields.
 
 Before posting, reproduce it once. Drag any widget with a configuration activity onto the home
-screen, press back at the setup screen, and check whether a tile is left behind. Everything
-below is derived from reading the code and the commit history rather than from watching it
-happen, and that is a thirty-second check that makes the report unarguable.
+screen, press back at the setup screen, and check whether a tile is left behind. The code
+analysis below is verified against AOSP and two forks, but nobody has watched the plain
+back-button case happen, and that is a thirty-second check that makes the report unarguable.
 
 ---
 
@@ -103,14 +103,27 @@ Both are worth keeping — stale rows already exist on people's home screens and
 handling. But nothing currently removes the row at the moment configuration is abandoned, which
 is why they keep appearing.
 
-This is not a Lawnchair regression. The same code ships in Launcher3 in Android 15: in
-LineageOS's Trebuchet fork at `lineage-22.2`, `addAppWidgetImpl`, `completeAddAppWidget` and the
-`RESULT_CANCELED` branch are all identical to the ones here, down to the comments. Two
-independent forks carrying the same code without either having patched it is about as close to
-"this is AOSP's" as you can get without reading AOSP directly. Lawnchair has it by inheritance.
+This is not a Lawnchair regression. It is AOSP's, and it is unfixed everywhere I could look.
+I checked `Launcher.java` in AOSP Launcher3 directly:
 
-The one thing I could not check is AOSP `main` — `android.googlesource.com` was unreachable from
-where I was working — so it is possible this has been fixed there since. If it has, take that
-fix rather than this one.
+| Branch | V2 flag | add-before-config | `RESULT_CANCELED` branch |
+| --- | --- | --- | --- |
+| `main` | present | behind the flag | `deleteAppWidgetId` only |
+| `android16-release` | present | behind the flag | `deleteAppWidgetId` only |
+| `android16-qpr1-release` | present | behind the flag | `deleteAppWidgetId` only |
+| `android16-qpr2-release` | **gone** | **unconditional** | `deleteAppWidgetId` only |
+
+Android 15 is affected too — LineageOS's Trebuchet at `lineage-22.2` carries the same code.
+
+The `android16-qpr2-release` row is the one worth pausing on. The flag has been finalised and
+removed, but the code it gated has not: the comment in `addAppWidgetImpl` still names
+`FLAG_ENABLE_ADD_APP_WIDGET_VIA_CONFIG_ACTIVITY_V2`, `showPendingWidget` is still there, and the
+early return has simply been deleted, so `completeAddAppWidget(..., needsConfigure(), ...)` now
+runs unconditionally. Adding the widget before configuration completes is permanent on that
+branch, there is no longer a flag to turn it off, and the cancel path is still the same two
+lines.
+
+So waiting for AOSP is not a plan here. In `completeTwoStageWidgetDrop`, no branch I checked
+contains `deleteWidgetInfo` or `removeWorkspaceItem` at all.
 
 A patch is attached as a pull request.

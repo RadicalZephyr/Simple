@@ -36,10 +36,12 @@ added a pending view fall through to the previous behaviour unchanged, which cov
 flow, `REQUEST_BIND_APPWIDGET` cancellations where nothing was added yet, and the case where the
 view has already gone.
 
-The flow is AOSP's rather than Lawnchair's — the same code is in Launcher3 in Android 15, which
-I confirmed against LineageOS's Trebuchet fork at `lineage-22.2`, where both halves and the
-cancel branch are identical. I could not reach `android.googlesource.com` to check whether AOSP
-`main` has fixed it since, so it is worth a look before taking this.
+The flow is AOSP's rather than Lawnchair's, and it is unfixed upstream: `main`,
+`android16-release`, `android16-qpr1-release` and `android16-qpr2-release` all have the same
+two-line `RESULT_CANCELED` branch, and none of them contains `deleteWidgetInfo` or
+`removeWorkspaceItem` anywhere in `completeTwoStageWidgetDrop`. On `android16-qpr2-release` the
+flag has been finalised away and the add-before-config behaviour is now unconditional, so the
+window for waiting on an upstream fix is closing rather than opening.
 
 This does not replace the existing workarounds in `LauncherWidgetHolder.startConfigActivity`
 (`aa8dd44`, `e4d8d3c`). Those still need to handle stale rows already present on users' home
