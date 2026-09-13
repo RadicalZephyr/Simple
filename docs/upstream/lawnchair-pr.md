@@ -36,12 +36,17 @@ added a pending view fall through to the previous behaviour unchanged, which cov
 flow, `REQUEST_BIND_APPWIDGET` cancellations where nothing was added yet, and the case where the
 view has already gone.
 
-The flow is AOSP's rather than Lawnchair's, and it is unfixed upstream: `main`,
-`android16-release`, `android16-qpr1-release` and `android16-qpr2-release` all have the same
-two-line `RESULT_CANCELED` branch, and none of them contains `deleteWidgetInfo` or
-`removeWorkspaceItem` anywhere in `completeTwoStageWidgetDrop`. On `android16-qpr2-release` the
-flag has been finalised away and the add-before-config behaviour is now unconditional, so the
-window for waiting on an upstream fix is closing rather than opening.
+The flow is AOSP's and unfixed upstream — `main`, `android16-release`,
+`android16-qpr1-release` and `android16-qpr2-release` all carry the same two-line
+`RESULT_CANCELED` branch, with no `deleteWidgetInfo` or `removeWorkspaceItem` anywhere in
+`completeTwoStageWidgetDrop`. It does not reproduce on a Pixel 6a running Android 16, though,
+which suggests Google ships the flag disabled; Lawnchair sets it `true` in `FeatureFlagsImpl`,
+which is why this reaches Lawnchair users and not stock ones.
+
+Setting the flag `false` would therefore also fix it today, and that is a fair thing to prefer.
+It gives up the feature the flag exists for, and it expires: on `android16-qpr2-release` the
+flag and its guard are already gone and the behaviour is unconditional, so at that merge there
+will be nothing left to switch off.
 
 This does not replace the existing workarounds in `LauncherWidgetHolder.startConfigActivity`
 (`aa8dd44`, `e4d8d3c`). Those still need to handle stale rows already present on users' home

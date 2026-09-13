@@ -101,6 +101,20 @@ So the workarounds are doing their job: the crash is gone. What is left in its p
 that looks actionable, says "Tap to finish setup", and silently does nothing — which is a worse
 bug to diagnose and an easier one to ignore.
 
+### Valid pending widget vs orphaned pending widget
+
+These look identical and behave completely differently, which is worth knowing before testing.
+
+The Clock widget does offer a pencil edit action on long press. On a correctly configured widget
+it works. On one of these orphans it does nothing — same inert path as tapping the tile, for the
+same reason. (The Calendar widget offers no edit action at all, so it is a poor choice for
+testing that part.)
+
+For contrast: on the Pixel, Anki produced a tile that also said it needed setup, and there the
+reconfigure flow worked and completed it properly. That tile had a widget id that was still
+bound. The difference is not that a widget is pending — pending is a legitimate state — it is
+that these orphans hold an id that has been freed underneath them.
+
 ### Two other observations
 
 Deleting the tile by long press works normally, so nobody is stuck — which probably explains
@@ -108,7 +122,8 @@ why this gets shrugged off rather than reported.
 
 Adding the same widget again does **not** recover the orphan, though it can look like it does.
 With the Calendar widget the newly configured widget appeared where the broken tile had been and
-seemed to replace it. Repeating it with the Clock widget showed what is really happening: the new
+seemed to replace it — it is large enough that two will not fit on a page, and being transparent,
+the dead one is visible straight through the working one once you look for it. Repeating it with the Clock widget showed what is really happening: the new
 tile is placed over the old one, and once configuration finishes the orphan slides out from
 underneath and stays on the home screen. So you end up with a working widget and the dead tile
 still there, just moved.
@@ -141,8 +156,9 @@ Both are worth keeping — stale rows already exist on people's home screens and
 handling. But nothing currently removes the row at the moment configuration is abandoned, which
 is why they keep appearing.
 
-This is not a Lawnchair regression. It is AOSP's, and it is unfixed everywhere I could look.
-I checked `Launcher.java` in AOSP Launcher3 directly:
+### Why this happens in Lawnchair and not on a Pixel
+
+The code is AOSP's, and it is unfixed on every branch I could read:
 
 | Branch | V2 flag | add-before-config | `RESULT_CANCELED` branch |
 | --- | --- | --- | --- |
@@ -151,17 +167,30 @@ I checked `Launcher.java` in AOSP Launcher3 directly:
 | `android16-qpr1-release` | present | behind the flag | `deleteAppWidgetId` only |
 | `android16-qpr2-release` | **gone** | **unconditional** | `deleteAppWidgetId` only |
 
-Android 15 is affected too — LineageOS's Trebuchet at `lineage-22.2` carries the same code.
+No branch has `deleteWidgetInfo` or `removeWorkspaceItem` anywhere in
+`completeTwoStageWidgetDrop`. LineageOS's Trebuchet at `lineage-22.2` carries the same code, so
+Android 15 is in the same position.
 
-The `android16-qpr2-release` row is the one worth pausing on. The flag has been finalised and
-removed, but the code it gated has not: the comment in `addAppWidgetImpl` still names
-`FLAG_ENABLE_ADD_APP_WIDGET_VIA_CONFIG_ACTIVITY_V2`, `showPendingWidget` is still there, and the
-early return has simply been deleted, so `completeAddAppWidget(..., needsConfigure(), ...)` now
-runs unconditionally. Adding the widget before configuration completes is permanent on that
-branch, there is no longer a flag to turn it off, and the cancel path is still the same two
-lines.
+But it does not reproduce on stock. On a Pixel 6a running Android 16 with Pixel Launcher, backing
+out of a configuration activity leaves nothing behind — which is the pre-V2 behaviour, and the
+most likely explanation is that Google ships
+`enable_add_app_widget_via_config_activity_v2` disabled. The flag's value lives in release
+configuration rather than in the Launcher3 tree, so I could not read it directly.
 
-So waiting for AOSP is not a plan here. In `completeTwoStageWidgetDrop`, no branch I checked
-contains `deleteWidgetInfo` or `removeWorkspaceItem` at all.
+Lawnchair sets it to `true` in its own `FeatureFlagsImpl`. That is the difference: the fault is
+in AOSP's code, but Lawnchair is the one enabling the path that reaches it.
+
+Which means there is a cheaper fix than the attached patch, and it should be said plainly:
+**setting the flag to `false` would make this go away today.** Two reasons I would not stop
+there. It gives up the feature the flag exists for — the widget appearing immediately with a
+preview instead of after configuration. And it has an expiry date: on `android16-qpr2-release`
+the flag and its guard are already gone, the comment in `addAppWidgetImpl` still names a flag
+that no longer exists, and `completeAddAppWidget(..., needsConfigure(), ...)` runs
+unconditionally. Whenever Lawnchair merges that Launcher3, there will be no flag left to turn
+off — and at that point stock devices inherit this too.
+
+So the choice is between a stopgap that stops working at the next merge, and removing the row at
+the moment configuration is abandoned. I would rather do the second, but the first is a
+legitimate call and I would rather raise it than have you find it.
 
 A patch is attached as a pull request.
