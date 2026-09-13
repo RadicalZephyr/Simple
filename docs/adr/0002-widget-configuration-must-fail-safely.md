@@ -132,10 +132,19 @@ fixing Simple alone does restore her widget. Rejected because the launcher bug i
 affects every widget that cancels configuration, and is small enough to be worth carrying.
 
 **Turn `enableAddAppWidgetViaConfigActivityV2` off in Lawnchair's `FeatureFlagsImpl`.** One
-line, reverts to the 14 behavior, no ghost widgets. Rejected: it throws away a deliberate
-upstream feature (the widget appears immediately with a preview instead of after
-configuration) to work around a missing cleanup, and it would silently diverge from upstream
-in a way that is easy to lose on the next merge.
+line, reverts to the 14 behavior, no ghost widgets. This is stronger than it first looked. The
+original rejection was that it disables a deliberate upstream feature and diverges from
+upstream — but the bug does not reproduce on a Pixel 6a running Android 16, which points at
+Google shipping the flag disabled. Setting it `false` would then be matching upstream's shipped
+configuration rather than departing from it, and Lawnchair enabling it is what exposes its users
+to this at all.
+
+Still rejected, but on one ground rather than three: it expires. On `android16-qpr2-release` the
+flag and its guard are already gone and the behavior is unconditional, so the next Launcher3
+merge leaves nothing to switch off — and carries the bug to stock devices with it. A stopgap
+with a known expiry date is worth less than the cleanup, though it is a legitimate thing for the
+maintainers to prefer in the meantime, and the issue says so rather than pretending the option
+does not exist.
 
 **Make the model loader clean up eagerly instead of fixing the cancel path.** Rejected as
 treating the symptom in the wrong layer. The loader already deletes these rows on the next
