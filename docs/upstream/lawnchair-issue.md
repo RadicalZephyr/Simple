@@ -3,11 +3,6 @@
 Open at https://github.com/LawnchairLauncher/lawnchair/issues/new/choose and pick the bug
 report form. Headings below match its fields.
 
-Before posting, reproduce it once. Drag any widget with a configuration activity onto the home
-screen, press back at the setup screen, and check whether a tile is left behind. The code
-analysis below is verified against AOSP and two forks, but nobody has watched the plain
-back-button case happen, and that is a thirty-second check that makes the report unarguable.
-
 ---
 
 ## Title
@@ -67,26 +62,69 @@ carry the new flow with the flag defaulted to `true`.
 
 ## Steps to reproduce
 
+Reproduced on Lawnchair 15 Beta 3, Samsung Galaxy A13 5G, using the Google Calendar "full
+calendar view" widget, which has a configuration activity.
+
 1. Long press the home screen and open the widget picker.
-2. Drag any widget that has a configuration activity onto the home screen.
-3. Press back at the configuration screen instead of completing it.
-4. A tile for the widget is left on the home screen.
-5. Long press it and choose reconfigure — this fails with "Bad widget id".
+2. Drag a widget that has a configuration activity onto the home screen.
+3. At the configuration screen, press back — or press its own Cancel button. Both do the same
+   thing.
+4. A tile is left on the home screen: a gear icon in the top left, the app's icon in the
+   middle, and the text "Tap to finish setup".
+5. Tap it. Nothing happens.
 6. Restart the launcher. The tile is gone.
+
+Completing the configuration normally gives a working widget, so the failure is specific to
+cancelling.
+
+The tile in step 4 is a `PendingAppWidgetHostView` in `FLAG_UI_NOT_READY` — "Tap to finish
+setup" is `gadget_complete_setup_text`, drawn at `PendingAppWidgetHostView.java:128`.
 
 ## Expected behavior
 
 Cancelling configuration leaves the home screen exactly as it was before the widget was
 dropped, which is what happened before the V2 flow.
 
+### Why tapping it does nothing
+
+Worth spelling out, because it explains why this is not being reported as a crash any more.
+
+`ItemClickHandler.onClickPendingWidget` finds the tile ready for setup, sees that
+`FLAG_ID_NOT_VALID` is not set, and calls
+`addFlowHandler.startConfigActivity(launcher, info, REQUEST_RECONFIGURE_APPWIDGET)` with the
+widget id that was already freed. That is the "Bad widget id" `IllegalArgumentException` — but
+`LauncherWidgetHolder.startConfigActivity` now catches it, `handleInvalidWidgetId` frees the id
+again and allocates a fresh one, and the retry runs against an id that was never bound to a
+provider, so it throws again until the retry cap stops it.
+
+So the workarounds are doing their job: the crash is gone. What is left in its place is a tile
+that looks actionable, says "Tap to finish setup", and silently does nothing — which is a worse
+bug to diagnose and an easier one to ignore.
+
+### Two other observations
+
+Deleting the tile by long press works normally, so nobody is stuck — which probably explains
+why this gets shrugged off rather than reported.
+
+Adding the same widget again does **not** recover the orphan, though it can look like it does.
+With the Calendar widget the newly configured widget appeared where the broken tile had been and
+seemed to replace it. Repeating it with the Clock widget showed what is really happening: the new
+tile is placed over the old one, and once configuration finishes the orphan slides out from
+underneath and stays on the home screen. So you end up with a working widget and the dead tile
+still there, just moved.
+
+That is worth noting in its own right — the orphan does not hold its cell against a later drop.
+Whatever bookkeeping the workspace does about occupancy, a row that exists and a view that is
+present are not stopping something else being placed on top of them.
+
 ## Device information
 
-Not device-specific — it is in the add-widget flow rather than in anything a device does
-differently. *(Fill in your device and Android version anyway, since the form asks.)*
+Samsung Galaxy A13 5G. Not device-specific — the fault is in the add-widget flow rather than in
+anything a device does differently.
 
 ## App version
 
-*(Your Lawnchair version.)*
+Lawnchair 15 Beta 3.
 
 ## Additional context
 
