@@ -134,8 +134,10 @@ present are not stopping something else being placed on top of them.
 
 ## Device information
 
-Samsung Galaxy A13 5G. Not device-specific — the fault is in the add-widget flow rather than in
-anything a device does differently.
+Samsung Galaxy A13 5G, with Lawnchair as the default launcher. Not device-specific — the fault
+is in the add-widget flow rather than in anything a device does differently. It does not
+reproduce under Pixel Launcher on a Pixel 6a, Android 16, build `CP1A.260405.005`; see
+Additional context.
 
 ## App version
 
@@ -171,8 +173,8 @@ No branch has `deleteWidgetInfo` or `removeWorkspaceItem` anywhere in
 `completeTwoStageWidgetDrop`. LineageOS's Trebuchet at `lineage-22.2` carries the same code, so
 Android 15 is in the same position.
 
-But it does not reproduce on stock. On a Pixel 6a running Android 16 with Pixel Launcher, backing
-out of a configuration activity leaves nothing behind — which is the pre-V2 behaviour, and the
+But it does not reproduce on stock. On a Pixel 6a running Android 16, build
+`CP1A.260405.005`, backing out of a configuration activity leaves nothing behind — which is the pre-V2 behaviour, and the
 most likely explanation is that Google ships
 `enable_add_app_widget_via_config_activity_v2` disabled. The flag's value lives in release
 configuration rather than in the Launcher3 tree, so I could not read it directly.
@@ -187,7 +189,14 @@ preview instead of after configuration. And it has an expiry date: on `android16
 the flag and its guard are already gone, the comment in `addAppWidgetImpl` still names a flag
 that no longer exists, and `completeAddAppWidget(..., needsConfigure(), ...)` runs
 unconditionally. Whenever Lawnchair merges that Launcher3, there will be no flag left to turn
-off — and at that point stock devices inherit this too.
+off.
+
+One thing I cannot square, and would rather state than paper over. That Pixel build is dated
+April 2026, which ought to put it past the point where `android16-qpr2-release` removed the flag
+— and it still does not reproduce. So either Pixel Launcher does not track that branch here, or
+it carries something AOSP does not; its source is not something I can read. That does not change
+what happens in Lawnchair, but it does mean I am not claiming to know what stock devices will do
+after a future merge.
 
 So the choice is between a stopgap that stops working at the next merge, and removing the row at
 the moment configuration is abandoned. I would rather do the second, but the first is a
